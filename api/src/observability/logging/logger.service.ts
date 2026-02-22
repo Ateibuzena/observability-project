@@ -1,4 +1,5 @@
 /*Esto es la base: logs estructurados y consistentes*/
+/*Regla brutal: nunca loguees cuerpos de request, headers con Authorization, passwords o tokens. Solo IDs, códigos de error y mensajes generales.*/
 
 import { Injectable, LoggerService } from '@nestjs/common';
 import pino from 'pino';

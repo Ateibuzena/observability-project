@@ -1,4 +1,5 @@
 /*Interceptor (medición real)*/
+/*Lo que sí es un riesgo: si alguna vez etiquetas con req.body.userId o req.query.email → estarías exponiendo datos de usuarios a Prometheus. Etiquetas deben ser información segura y agregada, nunca datos individuales identificables.*/
 
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';

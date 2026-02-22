@@ -286,3 +286,206 @@ scrape_configs:
     static_configs:
       - targets: ['host.docker.internal:3000']
 ```
+
+Perfecto. Lo que estás a punto de hacer es la parte **realmente seria** de observabilidad: métricas centralizadas y logging con ELK. Te voy a dar una guía **estricta y detallada**, fase por fase, siguiendo tu estilo de proyecto. Esto no es un “tutorial de copy-paste”: cada paso tiene que estar exacto, porque vas a indexar logs y métricas para poder **consultarlos y alertarlos**.
+
+---
+
+# 🧱 FASE 12 — Prometheus métricas avanzadas
+
+Ya tienes métricas básicas, pero vamos a exponer **métricas custom + etiquetas útiles** para Grafana.
+
+Dentro de `src/observability/metrics/metrics.service.ts` añade:
+
+```ts
+import { Counter, Gauge } from 'prom-client';
+
+@Injectable()
+export class MetricsService {
+  private readonly registry = new Registry();
+  public httpRequestDuration: Histogram<string>;
+  public activeUsers: Gauge<string>;
+  public requestCount: Counter<string>;
+
+  constructor() {
+    collectDefaultMetrics({ register: this.registry });
+
+    this.httpRequestDuration = new Histogram({
+      name: 'http_request_duration_seconds',
+      help: 'Duración de requests HTTP',
+      labelNames: ['method', 'route', 'status_code'],
+      registers: [this.registry],
+    });
+
+    this.activeUsers = new Gauge({
+      name: 'active_users',
+      help: 'Usuarios activos conectados',
+      registers: [this.registry],
+    });
+
+    this.requestCount = new Counter({
+      name: 'request_count_total',
+      help: 'Número total de requests HTTP',
+      labelNames: ['method', 'route', 'status_code'],
+      registers: [this.registry],
+    });
+  }
+
+  incrementRequests(method: string, route: string, status: string) {
+    this.requestCount.labels(method, route, status).inc();
+  }
+
+  setActiveUsers(count: number) {
+    this.activeUsers.set(count);
+  }
+
+  getMetrics() {
+    return this.registry.metrics();
+  }
+}
+```
+
+En tu `MetricsInterceptor` añade:
+
+```ts
+this.metrics.incrementRequests(method, route, status.toString());
+```
+
+Así cada request queda **contabilizada + duración**.
+
+---
+
+# 🧱 FASE 13 — Grafana dashboard básico
+
+Vamos a crear un dashboard mínimo para tu app NestJS:
+
+1. Inicia Grafana (ya está en tu docker-compose).
+
+2. Login: `admin/admin`.
+
+3. Añade Prometheus como **Data Source**:
+
+   * URL: `http://prometheus:9090`
+   * Access: `Server`
+   * Save & Test → OK
+
+4. Crear un dashboard:
+
+   * Panel 1: `http_request_duration_seconds` → tipo **Graph**
+     *Visualiza duración por ruta y método.*
+   * Panel 2: `request_count_total` → tipo **Stat**
+     *Muestra total requests.*
+   * Panel 3: `active_users` → tipo **Gauge**
+
+Guarda dashboard → `dashboard.json` si quieres versionarlo.
+
+---
+
+# 🧱 FASE 14 — ELK stack mínimo
+
+Vamos a levantar ELK con Docker y conectarlo a tu app NestJS.
+
+`docker-compose.yml` añade:
+
+```yaml
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.1
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.1
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.10.1
+    volumes:
+      - ./docker/logstash/pipeline/:/usr/share/logstash/pipeline/
+    ports:
+      - "5044:5044"
+```
+
+Crea `docker/logstash/pipeline/logstash.conf`:
+
+```conf
+input {
+  tcp {
+    port => 5044
+    codec => json_lines
+  }
+}
+
+filter {
+  # opcional: parsea fields
+  mutate {
+    convert => { "statusCode" => "integer" }
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["http://elasticsearch:9200"]
+    index => "nestjs-logs-%{+YYYY.MM.dd}"
+  }
+  stdout { codec => rubydebug }
+}
+```
+
+---
+
+# 🧱 FASE 15 — Enviar logs desde NestJS a Logstash
+
+Instala:
+
+```bash
+npm install pino-elasticsearch @nestjs/terminus
+```
+
+Modifica `logger.service.ts`:
+
+```ts
+import pinoElastic from 'pino-elasticsearch';
+
+const stream = pinoElastic({
+  node: 'http://localhost:5044', // Logstash TCP
+  index: 'nestjs-logs'
+});
+
+private logger = pino({ level: 'info' }, stream);
+```
+
+Ahora tus logs están **indexados en Elasticsearch** automáticamente.
+
+---
+
+# 🧱 FASE 16 — Queries básicas en Kibana
+
+1. Accede a `http://localhost:5601`.
+2. Crea **Index Pattern**: `nestjs-logs-*`.
+3. Explora logs:
+
+```kql
+statusCode: 500
+method: "POST"
+route: "/test"
+```
+
+4. Puedes crear dashboards en Kibana similares a Grafana, pero sobre **logs**.
+
+---
+
+# 🧱 FASE 17 — Validación rápida
+
+* Prometheus: `http://localhost:9090/graph?g0.expr=http_request_duration_seconds`
+* Grafana: `http://localhost:3001` → paneles OK
+* Kibana: `http://localhost:5601` → logs visibles
+* NestJS app: `http://localhost:3000/test` → logs + métricas actualizadas
+
+---
+
