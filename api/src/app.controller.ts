@@ -1,12 +1,18 @@
-import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { Controller, Get, Res } from '@nestjs/common';
+import { MetricsService } from './observability/metrics/metrics.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(private readonly metrics: MetricsService) {}
 
-  @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  @Get('metrics')
+  async getMetrics(@Res() res) {
+    res.set('Content-Type', 'text/plain');
+    res.send(await this.metrics.getMetrics());
+  }
+
+  @Get('test')
+  test() {
+    return { message: 'ok' };
   }
 }
