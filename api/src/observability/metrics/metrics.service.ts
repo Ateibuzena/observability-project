@@ -1,3 +1,5 @@
+/*Métricas Prometheus*/
+
 import { Injectable } from '@nestjs/common';
 import { Registry, collectDefaultMetrics, Histogram } from 'prom-client';
 
