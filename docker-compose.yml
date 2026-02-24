@@ -1,11 +1,33 @@
 version: '3.8'
 services:
+    api:
+        build: ./api
+        container_name: nestjs-api
+        ports:
+            - "3001:3000"
+        networks:
+            - observability-net
+        volumes:
+            - ./api:/usr/src/app
     prometheus:
+        container_name: prometheus
         build:
             context: ./docker/prometheus
         ports:
             - "9090:9090"
+        networks:
+            - observability-net
     grafana:
-        image: grafana/grafana
+        container_name: grafana
+        build:
+            context: ./docker/grafana
         ports:
-            - "3001:3000"
+            - "3002:3000"
+        depends_on:
+            - prometheus
+        networks:
+            - observability-net
+networks:
+    observability-net:
+        driver: bridge
+

@@ -1,0 +1,66 @@
+{
+	"annotations": {
+		"list": []
+	},
+	"editable": true,
+	"panels": [
+		{
+			"type": "timeseries",
+			"title": "HTTP Request Duration (p95)",
+			"targets": [
+				{
+					"expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le))",
+					"legendFormat": "p95 latency"
+				}
+			],
+			"gridPos": {
+				"x": 0,
+				"y": 0,
+				"w": 24,
+				"h": 8
+			}
+		},
+		{
+			"type": "stat",
+			"title": "Total Requests",
+			"targets": [
+				{
+					"expr": "sum(request_count_total)",
+					"legendFormat": "requests"
+				}
+			],
+			"gridPos": {
+				"x": 0,
+				"y": 8,
+				"w": 12,
+				"h": 6
+			}
+		},
+		{
+			"type": "gauge",
+			"title": "Active Users",
+			"targets": [
+				{
+					"expr": "active_users",
+					"legendFormat": "users"
+				}
+			],
+			"fieldConfig": {
+				"defaults": {
+					"min": 0,
+					"max": 100
+				}
+			},
+			"gridPos": {
+				"x": 12,
+				"y": 8,
+				"w": 12,
+				"h": 6
+			}
+		}
+	],
+	"schemaVersion": 36,
+	"style": "dark",
+	"title": "NestJS Observability",
+	"version": 1
+}

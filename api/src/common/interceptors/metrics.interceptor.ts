@@ -5,6 +5,7 @@ import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nes
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { MetricsService } from '../../observability/metrics/metrics.service';
+import { log } from 'console';
 
 @Injectable()
 export class MetricsInterceptor implements NestInterceptor {
@@ -20,12 +21,18 @@ export class MetricsInterceptor implements NestInterceptor {
             tap(() => {
                 const response = context.switchToHttp().getResponse();
                 const statusCode = response.statusCode;
-                const duration = Date.now() - start;
+                const duration = (Date.now() - start) / 1000;
 
                 this.metrics.httpRequestDuration
                     .labels(method, route, statusCode.toString())
                     .observe(duration);
-            }),
+                    
+                this.metrics.incrementRequests(method, route, statusCode.toString());
+                void this.metrics.getTotalRequests().then((totalRequests) => {
+                    log(`Request ${method} ${route} completed with status ${statusCode} in ${duration}ms total requests: ${totalRequests}`);
+                });
+                this.metrics.setActiveUsers(1); // Ejemplo: incrementar usuarios activos (en un caso real, esto debería basarse en la lógica de conexión/desconexión de usuarios)
+            })
         );
     }
 }
