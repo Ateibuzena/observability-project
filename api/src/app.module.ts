@@ -6,7 +6,7 @@ import { MetricsModule } from './observability/metrics/metrics.module';
 import { AppLoggerModule } from './observability/logging/logger.module';
 
 @Module({
-	imports: [MetricsModule],
+	imports: [MetricsModule, AppLoggerModule],
 	controllers: [AppController],
 })
 export class AppModule { }

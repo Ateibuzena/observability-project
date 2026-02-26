@@ -1,19 +1,24 @@
-# Imagen de desarrollo con Node 20
-FROM node:20-alpine
+FROM node:20-alpine AS builder
 
 WORKDIR /usr/src/app
 
-# Dependencias (incluye devDependencies para watch/hot-reload)
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
-# Variables para watch estable dentro de contenedores
-ENV NODE_ENV=development
-ENV CHOKIDAR_USEPOLLING=true
-ENV WATCHPACK_POLLING=true
+COPY . .
+RUN npm run build
 
-# Puerto NestJS
+FROM node:20-alpine AS production
+
+WORKDIR /usr/src/app
+
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY --from=builder /usr/src/app/dist ./dist
+
 EXPOSE 3000
 
-# Modo desarrollo con hot-reload
-CMD ["npm", "run", "start:dev"]
+CMD ["npm", "run", "start:prod"]

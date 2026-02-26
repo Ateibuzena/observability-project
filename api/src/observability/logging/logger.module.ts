@@ -3,19 +3,25 @@
 import { Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 @Module({
 	imports: [
 		LoggerModule.forRoot({
-			pinoHttp: { //quitar en produccion
-				transport: {
-					target: 'pino-pretty',
-					options: {
-						colorize: true,
-						translateTime: 'SYS:standard',
-						ignore: 'pid,hostname',
+			pinoHttp: isProduction
+				? {
+					level: 'info',
+				}
+				: {
+					transport: {
+						target: 'pino-pretty',
+						options: {
+							colorize: true,
+							translateTime: 'SYS:standard',
+							ignore: 'pid,hostname',
+						},
 					},
 				},
-			},
 		}),
 	],
 })
